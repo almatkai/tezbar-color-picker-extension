@@ -1,0 +1,12 @@
+{
+  "$schema": "https://tezbar.dev/schemas/catalog-entry-v1.json",
+  "id": "com.tezbar.color-picker",
+  "name": "Color Picker",
+  "manifest": "package.json",
+  "featured": true,
+  "verified": false,
+  "platforms": ["windows", "macos"],
+  "linuxStatus": "coming-soon",
+  "categories": ["Design", "Developer Tools"],
+  "screenshots": ["assets/picker-preview.png", "assets/color-wheel-preview.png"]
+}
