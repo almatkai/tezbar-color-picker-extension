@@ -1,8 +1,9 @@
-"""Temporary, headless Windows differential evidence; never a sampler substitute.
+"""Headless Windows release regressions through the actual Rust sampler launch.
 
-Every case uses Host's unchanged filtered environment and the production Rust
-PowerShell argv. Run serially, at most six seconds per request. Job ownership is
-established before requesting any helper, including Add-Type's compiler children.
+Use the package's shared trusted-OS bootstrap, never ambient module discovery.
+Run serially, at most six seconds per request. Job ownership precedes helper
+requests and includes Add-Type compiler children. The prior eight-case native
+differential evidence is retained in the external report, not a failing gate.
 """
 import ctypes
 from ctypes import wintypes
@@ -66,21 +67,15 @@ def probe_cases(work, production):
     valid = work / "probe's.pid"
     invalid = work / 'missing-parent' / "probe's.pid"
     # Set-Content -Path matches the original failing fixture exactly. Only the
-    # import strategy or target-parent existence changes between paired cases.
+    # target-parent existence changes between the paired write cases.
     write = lambda path: '$PID | Set-Content -Path ' + literal(path)
-    explicit = ("$PSModuleAutoLoadingPreference = 'None'\n"
-                "mark 'before-import'\n"
-                "Import-Module ($PSHOME + '\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1') -ErrorAction Stop\n"
-                "mark 'after-import'\n")
+    bootstrap = ("mark 'before-import'\n"
+                 ". ($PSScriptRoot + '\\windows-modules.ps1') -IncludeManagement\n"
+                 "mark 'before-write'\n")
     return [
-        ('dotnet-valid', '[IO.File]::WriteAllText(' + literal(valid) + ', [string]$PID)', False),
-        ('dotnet-invalid', '[IO.File]::WriteAllText(' + literal(invalid) + ', [string]$PID)', True),
-        ('resolve-set-content', "$null = Get-Command Set-Content -CommandType Cmdlet -ErrorAction Stop", False),
-        ('autoload-valid', write(valid), False),
-        ('autoload-invalid', write(invalid), True),
-        ('explicit-valid', explicit + "mark 'before-write'\n" + write(valid), False),
-        ('explicit-invalid', explicit + "mark 'before-write'\n" + write(invalid), True),
-        # Invoke the unmodified real sampler with its compile-only switch. No
+        ('explicit-valid', bootstrap + write(valid), False),
+        ('explicit-invalid', bootstrap + write(invalid), True),
+        # Invoke the actual package sampler with its compile-only switch. No
         # DPI/capture/form code runs. Do not inherit the CI environment here.
         ('production-check', '& ' + literal(production) + " -Check\n"
          "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }", False),
@@ -100,6 +95,7 @@ def run_probe(binary, package, work, host_type, job_type=OwnedJob):
     sampler.mkdir(parents=True)
     helper, stage = sampler / 'windows.ps1', work / 'stage'
     production = (pathlib.Path(package) / 'resources' / 'sampler' / 'windows.ps1').resolve()
+    (sampler / 'windows-modules.ps1').write_bytes(production.with_name('windows-modules.ps1').read_bytes())
     failures = []
     for name, body, expected_error in probe_cases(work, production):
         stage.unlink(missing_ok=True)
@@ -117,12 +113,8 @@ def run_probe(binary, package, work, host_type, job_type=OwnedJob):
             result['detail'] = repr(response.get('error', response.get('result')))[:768]
             if expected_error:
                 assert 'error' in response and 'sampler-cmdlet-probe:' in result['detail'], 'Expected the real write failure'
-                if name == 'dotnet-invalid':
-                    assert 'DirectoryNotFoundException' in result['detail'], 'Expected the .NET missing-parent error'
-                else:
-                    assert 'SetContentCommand' in result['detail'], 'Expected the Set-Content write error, not lookup/import failure'
-                if name == 'explicit-invalid':
-                    assert stage.read_bytes() == b'before-write', 'Import did not reach the invalid-parent write'
+                assert 'SetContentCommand' in result['detail'] and 'DirectoryNotFound' in result['detail'], 'Expected the Set-Content missing-parent write error, not lookup/import failure'
+                assert stage.read_bytes() == b'before-write', 'Import did not reach the invalid-parent write'
             else:
                 assert 'error' not in response, 'Probe operation failed'
                 assert stage.read_bytes() == b'complete', 'Probe did not complete its script'
@@ -140,11 +132,15 @@ def run_probe(binary, package, work, host_type, job_type=OwnedJob):
                 result['cleanup_failure'] = (type(error).__name__ + ': ' + str(error))[:768]
                 failures.append(name)
             finally:
-                if job is not None:job.close()
+                try:
+                    if job is not None:job.close()
+                except Exception as error:
+                    result['job_cleanup_failure'] = (type(error).__name__ + ': ' + str(error))[:768]
+                    failures.append(name)
         try:result['stage'] = stage.read_bytes()[:128].decode('ascii', errors='replace')
         except FileNotFoundError:result['stage'] = 'missing (entry unconfirmed)'
         result['seconds'] = round(time.monotonic() - started, 3)
         print('sampler-cmdlet-probe: ' + json.dumps(result), flush=True)
-    # Return failures only after collecting every independent case. Caller keeps
-    # the original PID/cancellation test and requires these checks at suite end.
+    # Collect all independent release regressions before failing the suite.
+    # The caller additionally retains live PID/cancellation/disposal/EOF checks.
     return failures

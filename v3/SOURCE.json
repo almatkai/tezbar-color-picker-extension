@@ -410,5 +410,20 @@
         }
       }
     ]
-  }
+  },
+  "standaloneSamplerChanges": [
+    {
+      "path": "resources/sampler/windows.ps1",
+      "sha256": "58b6072c1e0640cae1058028a54839d88be1741b7aa265e48dc4c5cbaf5514d4",
+      "inputPath": "native/color-picker/windows.ps1",
+      "inputSha256": "42c2b6030eb83f6a77b7463d2ba636cc3d85f422549ce97cf1f5a4f8251106b7",
+      "changes": "Derivative of the app baseline sampler: adds terminating errors, compile-only -Check before DPI/capture/forms, and shared deterministic OS-module bootstrap before Utility cmdlets. Original sampler UI and capture code retained; not byte-identical to the input."
+    },
+    {
+      "path": "resources/sampler/windows-modules.ps1",
+      "sha256": "5c81a575c833075d04c1c14312ae2812aab4e29cc4c0e803e91f9cb76c09d5d3",
+      "origin": "Standalone Rust-port bootstrap, Apache-2.0; OS modules are imported at runtime and not redistributed.",
+      "changes": "Disables autoload in the sampler script scope; imports Utility from its absolute PSHOME manifest. Optional Management is used only by headless Set-Content lifecycle fixtures."
+    }
+  ]
 }

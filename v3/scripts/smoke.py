@@ -10,6 +10,7 @@ with tempfile.TemporaryDirectory(prefix='package-smoke-') as temp:
   m=json.loads(archive.read('extension.json'))
   assert len(archive.namelist())==len(set(archive.namelist()))
   assert set(archive.namelist())==set(m['files'])|{'extension.json'}
+  assert 'resources/sampler/windows-modules.ps1' in m['files'], 'Package must contain the sampler module bootstrap'
   for e in archive.infolist():
    relative=pathlib.PurePosixPath(e.filename)
    assert not relative.is_absolute() and all(x not in ('.','..') and ':' not in x and '\\' not in x for x in relative.parts)

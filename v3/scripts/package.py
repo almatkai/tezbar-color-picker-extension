@@ -55,7 +55,7 @@ def main():
     files = {executable: args.binary.read_bytes()}
     for name in ["LICENSE", "NOTICE", "README.md", "SOURCE.json"]:
         files[name] = (ROOT / name).read_bytes()
-    required = ['resources/icon.png', 'resources/rgb-color-wheel.png', 'resources/tray.png', 'resources/sampler/windows.ps1', 'resources/sampler/main.swift', 'resources/sampler/build.sh']
+    required = ['resources/icon.png', 'resources/rgb-color-wheel.png', 'resources/tray.png', 'resources/sampler/windows.ps1', 'resources/sampler/windows-modules.ps1', 'resources/sampler/main.swift', 'resources/sampler/build.sh']
     executables = {executable}
     if args.target == "aarch64-apple-darwin":
         helper = "resources/sampler/color-picker-helper"

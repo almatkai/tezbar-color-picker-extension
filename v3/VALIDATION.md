@@ -17,7 +17,7 @@ Passed locally:
 - Frozen source pack matches `git show fe71ca87f21ac4ff31505010c228f8abda0f2a89`;
   all inherited test names, command IDs/preferences and original icons preserved.
 - No app or Tauri Cargo dependency; SDK source is the immutable git dependency.
-- Package-owned Swift sampler builds and ad-hoc codesigns as ARM64. Original Swift and PowerShell source retained.
+- Package-owned Swift sampler builds and ad-hoc codesigns as ARM64. Swift source retained; the PowerShell derivative retains the original sampler UI/capture implementation (see SOURCE.json).
 
 Packaging uses actual native release executable bytes, a complete SHA-256 file
 inventory and separate computed artifact metadata. Extracted-ZIP process smoke
@@ -161,3 +161,45 @@ fmt pass. New PowerShell/Win32 paths have NOT executed locally. This is an evide
 patch for one parent-owned native CI run, not a publication-ready Windows fix.
 Full evidence, hashes, unconfirmed hypotheses and parent steps:
 /tmp/tezbar-external-rust/color-windows-cmdlet-fix.md.
+
+
+Windows deterministic module bootstrap (base 2b5f7979): parent-supplied native
+run 40193740576/job 121170029128 passed 15 domain and 16 focused tests plus .NET
+cleanup/EOF controls. Ordinary Get-Command/Set-Content and production -Check each
+timed out after six seconds; absolute OS Management import with autoload disabled
+completed valid/invalid Set-Content writes in 0.213/0.209 seconds. This supports
+bypassing discovery, without proving which missing ambient input caused delay.
+The app allows more profile variables than this fixture: identical production-app
+failure has not been demonstrated.
+
+The production PowerShell sampler now dot-sources packaged windows-modules.ps1
+before Add-Type. This imports only Utility from an absolute PSHOME manifest;
+the same bootstrap optionally imports Management for the real Set-Content fixture.
+Autoload is disabled only in the helper's script/child scopes, with no parent
+environment changes. No Join-Path or other unloaded-module cmdlet is needed to
+bootstrap. No PSModulePath, USERPROFILE or secrets are inherited by the fixture.
+The production UI/C# code and -Check exit before DPI/capture/forms are preserved.
+SOURCE.json records these derivative source changes; package inventories require
+and hash the new bootstrap on both targets, including extracted-ZIP smoke.
+
+The exploratory eight-case matrix is replaced by three strict release regressions:
+shared-bootstrap positive/negative Set-Content and actual package sampler -Check,
+through unchanged Rust argv/filtered environment with six-second request bounds.
+The intentionally broken old implicit-autoload route is no longer a mandatory
+gate; its exact native timeout evidence remains in the external evidence log and
+report. No timeout is accepted as success. Expected invalid writes require both
+DirectoryNotFound/SetContentCommand identity and a marker after successful imports.
+Failure cleanup and active EOF now use that same initialized cmdlet PID fixture;
+the existing numeric-PID/live-before/dead-after disposal assertions remain and an
+explicit protocol-cancel termination check is added. Graceful SDK cleanup, original
+failure preservation and private kill-on-close Windows Job ownership of the
+production-check PowerShell/compiler descendants remain mandatory.
+
+Local macOS validation is recorded in the external report below. PowerShell,
+Utility import, Windows Job APIs and MSVC execution have not run locally. The next
+native Windows job must complete the three cases, PID/write/error/cancel/dispose/
+EOF/failure-cleanup assertions, release packaging and extracted-package smoke.
+No live desktop capture, clipboard, tray, AI, permissions or user-data mutation
+was exercised. SDK pin/two Tokio workers and all Rust domain code are unchanged.
+Exact patch, changed-file hashes, local results and remaining native/live gates:
+/tmp/tezbar-external-rust/color-windows-module-bootstrap-fix.md.

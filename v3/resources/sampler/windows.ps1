@@ -1,5 +1,6 @@
 param([switch]$Check)
 $ErrorActionPreference = 'Stop'
+. ($PSScriptRoot + '\windows-modules.ps1')
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms

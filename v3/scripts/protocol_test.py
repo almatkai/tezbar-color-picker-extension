@@ -171,27 +171,36 @@ def action_id(view,title):
 
 
 def windows_pid_script(pidfile,stagefile):
-    # Keep the failing cmdlet path for the next native evidence round. .NET
-    # markers distinguish script entry, PID publication and a fatal write error.
+    # Both production and this fixture dot-source the packaged OS-module
+    # bootstrap. The fixture also needs Management for its real Set-Content.
     # PowerShell single-quoted literals escape apostrophes by doubling them.
     pid=str(pidfile).replace("'","''");stage=str(stagefile).replace("'","''")
     return ("$ErrorActionPreference = 'Stop'\ntry {\n"
             "[IO.File]::WriteAllText('"+stage+"', 'entered-before-set-content')\n"
+            ". ($PSScriptRoot + '\\windows-modules.ps1') -IncludeManagement\n"
+            "[IO.File]::WriteAllText('"+stage+"', 'modules-imported-before-set-content')\n"
             "$PID | Set-Content -Path '"+pid+"'\n"
             "[IO.File]::WriteAllText('"+stage+"', 'pid-written-before-start-sleep')\n"
             "Start-Sleep -Seconds 60\n"
-            "} catch { [Console]::Error.Write('sampler-fixture-pid: ' + $_.Exception.ToString()); exit 24 }\n")
+            "} catch { [Console]::Error.Write('sampler-fixture-pid: ' + $_.Exception.GetType().FullName + '; id=' + $_.FullyQualifiedErrorId + '; ' + $_.Exception.Message); exit 24 }\n")
 
 
-def sampler_cleanup_regression(binary, work):
+def install_windows_bootstrap(sampler, package):
+    # Copy the actual package resource, including for extracted-ZIP smoke.
+    source = pathlib.Path(package) / 'resources/sampler/windows-modules.ps1'
+    (sampler / 'windows-modules.ps1').write_bytes(source.read_bytes())
+
+
+def sampler_cleanup_regression(binary, package, work):
     # Reproduce a readiness failure only AFTER proving a real owned helper live.
     # A different PID path models the native missing-file symptom without
-    # depending on Windows cmdlet behavior to trigger the failure cleanup path.
+    # depending on an actual missing PID to trigger the failure cleanup path.
     sampler=work/"cleanup's package"/'resources'/'sampler';sampler.mkdir(parents=True)
     helper=sampler/('windows.ps1' if os.name=='nt' else 'color-picker-helper')
     pidfile=work/"cleanup's.pid"
     if os.name=='nt':
-        helper.write_text("[IO.File]::WriteAllText('"+str(pidfile).replace("'","''")+"', [string]$PID); [Threading.Thread]::Sleep(60000)")
+        install_windows_bootstrap(sampler, package)
+        helper.write_text(windows_pid_script(pidfile, work / 'cleanup.stage'))
     else:
         helper.write_text('#!/bin/sh\necho $$ > "'+str(pidfile)+'"\nexec /bin/sleep 60\n');helper.chmod(0o755)
     h=Host(binary,sampler.parent.parent,work/'cleanup-data','color-picker')
@@ -249,7 +258,7 @@ def process_gone(pid):
 
 
 def color_suite(binary,package,work):
-    sampler_cleanup_regression(binary,work)
+    sampler_cleanup_regression(binary,package,work)
     probe_failures=[]
     if os.name=='nt':
         from windows_cmdlet_probe import run_probe
@@ -334,7 +343,9 @@ def color_suite(binary,package,work):
     sampler=work/'sampler-package'/'resources'/'sampler';sampler.mkdir(parents=True)
     helper=sampler/('windows.ps1' if os.name=='nt' else 'color-picker-helper')
     pidfile=work/'sampler.pid';stagefile=work/'sampler.stage'
-    if os.name=='nt':helper.write_text("[Console]::Error.Write('sampler-fixture-intentional-failure'); exit 23")
+    if os.name=='nt':
+        install_windows_bootstrap(sampler, package)
+        helper.write_text("[Console]::Error.Write('sampler-fixture-intentional-failure'); exit 23")
     else:helper.write_text("#!/bin/sh\nprintf '%s' 'sampler-fixture-intentional-failure' >&2\nexit 23\n");helper.chmod(0o755)
     h=Host(binary,sampler.parent.parent,work/'sampler-data','color-picker')
     try:
@@ -352,7 +363,10 @@ def color_suite(binary,package,work):
             helper.write_text(windows_pid_script(work/'missing-parent'/"sampler's.pid",stagefile))
             failed=h.request('session.open',{'sessionId':'failed-write-picker','commandName':'pick-color'})
             try:h.sampler_pid(failed,pidfile,stagefile=stagefile)
-            except AssertionError as error:assert 'sampler-fixture-pid:' in str(error),error
+            except AssertionError as error:
+                detail=str(error)
+                assert 'sampler-fixture-pid:' in detail and 'SetContentCommand' in detail and 'DirectoryNotFound' in detail,error
+                assert stagefile.read_bytes()==b'modules-imported-before-set-content','Expected write failure after module initialization'
             else:raise AssertionError('Invalid fixture write unexpectedly published a PID')
             assert 'error' in h.wait(failed,allow_error=True)
             stagefile.unlink()  # The next attempt must prove its own script entry.
@@ -367,6 +381,14 @@ def color_suite(binary,package,work):
         assert 'error' in h.wait(identity,allow_error=True)
         h.until(lambda:any(m['method']=='host.window.suppressBlur' and m['params']['suppress'] is False for m in h.calls))
         h.until(gone)
+        # An explicit protocol cancel must also terminate a proven-live helper.
+        pidfile.unlink()
+        cancelled=h.request('session.open',{'sessionId':'cancel-picker','commandName':'pick-color'})
+        pid=h.sampler_pid(cancelled,pidfile,stagefile=stagefile if os.name=='nt' else None)
+        assert not process_gone(pid),'Temporary sampler must be running before protocol cancel'
+        h.send({'type':'cancel','requestId':cancelled,'reason':'fixture sampler cancellation'})
+        assert 'error' in h.wait(cancelled,allow_error=True)
+        h.until(lambda:process_gone(pid))
         if os.name=='nt':helper.write_text("[Console]::Write('{\"red\":1,\"green\":0,\"blue\":0,\"alpha\":1,\"colorSpace\":\"srgb\"}')")
         else:helper.write_text("#!/bin/sh\nprintf '%s' '{\"red\":1,\"green\":0,\"blue\":0,\"alpha\":1,\"colorSpace\":\"srgb\"}'\n");helper.chmod(0o755)
         assert h.open('picked','pick-color')['mode']=='no-view'

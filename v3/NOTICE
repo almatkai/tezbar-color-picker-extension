@@ -19,3 +19,10 @@ CC BY 2.5 license apply to the NTC data; this package is not MIT-only.
 The tray PNG reproduces the baseline adapter's locally drawn eyedropper mask.
 Original installed icon and color wheel PNG are retained without a new ownership
 or trademark claim.
+
+The packaged Windows sampler is an app-derived source adaptation, not a
+byte-identical copy: it adds terminating errors, headless -Check and the shared
+windows-modules.ps1 bootstrap. That Apache-2.0 bootstrap imports only required
+OS PowerShell modules from PSHOME; OS module binaries are not redistributed.
+The sampler UI/capture implementation is retained. See SOURCE.json for input
+provenance and hashes of these packaged derivative sources.

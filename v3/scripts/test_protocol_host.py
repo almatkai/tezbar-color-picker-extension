@@ -138,7 +138,9 @@ class WindowsProbeTests(unittest.TestCase):
         owners, cleaned, closed = [], [], []
         class Job:
             def __init__(self, pid):owners.append(pid)
-            def close(self):closed.append(True)
+            def close(self):
+                closed.append(True)
+                if broken in ('job-cleanup', 'both-cleanup'):raise OSError('owned job close failed')
         class Peer:
             def __init__(self, binary, package, data, slug):
                 self.name = data.name[:-5]
@@ -149,29 +151,40 @@ class WindowsProbeTests(unittest.TestCase):
                 return self.name
             def wait(self, identity, allow_error, timeout):
                 if timeout != 6:raise AssertionError('Changed probe deadline')
-                if self.name == broken:raise AssertionError('Response deadline ' + 'x' * 4000)
+                if self.name == broken or (broken == 'both-cleanup' and self.name == 'explicit-valid'):raise AssertionError('Response deadline ' + 'x' * 4000)
                 if self.name.endswith('-invalid'):
                     (self.work / 'stage').write_text('before-write' if self.name == 'explicit-invalid' else 'entered')
-                    cause = 'DirectoryNotFoundException' if self.name == 'dotnet-invalid' else 'SetContentCommand'
+                    cause = 'DirectoryNotFoundException; id=GetContentWriterDirectoryNotFoundError,Microsoft.PowerShell.Commands.SetContentCommand'
                     if broken == 'wrong-error' and self.name == 'explicit-invalid':cause = 'Modules_ModuleNotFound'
+                    if broken == 'missing-module' and self.name == 'explicit-invalid':
+                        (self.work / 'stage').write_text('before-import')
+                        cause = 'DirectoryNotFoundException; id=Modules_ModuleNotFound'
                     return {'error': {'message': 'sampler-cmdlet-probe: ' + cause}}
                 (self.work / 'stage').write_text('complete')
                 if self.name.endswith('-valid') and broken != 'missing-write':
                     (self.work / "probe's.pid").write_bytes(b'12345\r\n')
                 return {'result': {'mode': 'no-view'}}
-            def cleanup(self):cleaned.append(self.name)
+            def cleanup(self):
+                cleaned.append(self.name)
+                if broken == 'both-cleanup':raise OSError('graceful fixture cleanup failed')
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()) as output:
             work = pathlib.Path(directory) / 'probe'
-            failures = run_probe('fixture.exe', pathlib.Path(directory), work, Peer, Job)
-        self.assertEqual(len(owners), 8)
-        self.assertEqual(len(cleaned), 8)
-        self.assertEqual(len(closed), 8)
-        self.assertEqual(len(output.getvalue().splitlines()), 8)
+            failures = run_probe('fixture.exe', pathlib.Path(__file__).resolve().parents[1], work, Peer, Job)
+        self.assertEqual(len(owners), 3)
+        self.assertEqual(len(cleaned), 3)
+        self.assertEqual(len(closed), 3)
+        self.assertEqual(len(output.getvalue().splitlines()), 3)
         self.assertLess(len(output.getvalue()), 5000)
+        if broken == 'both-cleanup':
+            import json
+            first = json.loads(output.getvalue().splitlines()[0].split(': ', 1)[1])
+            self.assertIn('Response deadline', first['failure'])
+            self.assertIn('graceful fixture cleanup failed', first['cleanup_failure'])
+            self.assertIn('owned job close failed', first['job_cleanup_failure'])
         return failures
 
     def test_timeout_collects_remaining_cases_and_cleans_each_owned_tree(self):
-        self.assertEqual(self.run_matrix('resolve-set-content'), ['resolve-set-content'])
+        self.assertEqual(self.run_matrix('explicit-valid'), ['explicit-valid'])
 
     def test_production_check_failure_cannot_be_accepted_as_success(self):
         self.assertEqual(self.run_matrix('production-check'), ['production-check'])
@@ -180,7 +193,19 @@ class WindowsProbeTests(unittest.TestCase):
         self.assertEqual(self.run_matrix('wrong-error'), ['explicit-invalid'])
 
     def test_success_response_cannot_conceal_missing_write(self):
-        self.assertEqual(self.run_matrix('missing-write'), ['dotnet-valid', 'autoload-valid', 'explicit-valid'])
+        self.assertEqual(self.run_matrix('missing-write'), ['explicit-valid'])
+
+    def test_missing_module_directory_cannot_impersonate_missing_write_parent(self):
+        self.assertEqual(self.run_matrix('missing-module'), ['explicit-invalid'])
+
+    def test_job_cleanup_failure_fails_the_gate(self):
+        self.assertEqual(self.run_matrix('job-cleanup'), ['explicit-valid', 'explicit-invalid', 'production-check'])
+
+    def test_primary_timeout_survives_both_cleanup_failures(self):
+        self.assertEqual(self.run_matrix('both-cleanup'), [
+            'explicit-valid', 'explicit-valid', 'explicit-valid',
+            'explicit-invalid', 'explicit-invalid', 'production-check', 'production-check'])
+
 
 
 if __name__ == '__main__':
