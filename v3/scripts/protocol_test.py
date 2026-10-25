@@ -5,6 +5,7 @@ No desktop effects: clipboard/tray/AI/notifications are acknowledged by this hos
 The sampler is a temporary process fixture, never the live screen sampler.
 """
 import argparse
+import contextlib
 import ctypes
 import json
 import os
@@ -12,11 +13,32 @@ import pathlib
 import queue
 import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import uuid
 import zlib
+
+
+def preserve_failure(cleanup):
+    """Keep the assertion primary while still reporting every cleanup failure."""
+    primary=sys.exc_info()[1]
+    try:cleanup()
+    except Exception as error:
+        if primary is None:raise
+        note=f'Fixture cleanup also failed: {type(error).__name__}: {error}'
+        if hasattr(primary,'add_note'):primary.add_note(note)
+        else:
+            primary.__notes__=getattr(primary,'__notes__',[])+[note]
+            print(note,file=sys.stderr)  # Python 3.9/3.10 traceback lacks notes.
+
+
+@contextlib.contextmanager
+def temporary_work(prefix):
+    work=tempfile.TemporaryDirectory(prefix=prefix)
+    try:yield pathlib.Path(work.name)
+    finally:preserve_failure(work.cleanup)
 
 
 class Host:
@@ -42,7 +64,11 @@ class Host:
                                  'migrationPaths':migration or {},'reason':'process-regression'})
     def receive(self,timeout=6):
         value=self.messages.get(timeout=timeout)
-        assert value is not None,'Unexpected EOF: '+self.process.stderr.read().decode()
+        if value is None:
+            # EOF is a protocol failure even if a broken peer keeps stderr
+            # open; do not let its diagnostic read defeat cleanup's deadline.
+            detail=self.process.stderr.read().decode() if self.process.poll() is not None else 'extension still running'
+            raise AssertionError('Unexpected EOF: '+detail)
         return value
     def send(self,value):
         self.process.stdin.write((json.dumps(value,ensure_ascii=False)+'\n').encode());self.process.stdin.flush()
@@ -62,11 +88,12 @@ class Host:
         elif message['type']=='event':self.events.append(message)
         elif message['type']=='response':self.responses[message['id']]=message
         else:assert message['type']=='cancel',message
-    def wait(self,identity,allow_error=False):
-        deadline=time.monotonic()+8
+    def wait(self,identity,allow_error=False,timeout=8):
+        deadline=time.monotonic()+timeout
         while identity not in self.responses:
             assert time.monotonic()<deadline,'Response deadline'
-            self.route(self.receive())
+            try:self.route(self.receive(min(.1,max(0,deadline-time.monotonic()))))
+            except queue.Empty:pass
         response=self.responses.pop(identity)
         if not allow_error:assert 'error' not in response,response
         return response
@@ -84,7 +111,7 @@ class Host:
             assert time.monotonic()<deadline,'Condition deadline'
             try:self.route(self.receive(.1))
             except queue.Empty:pass
-    def sampler_pid(self,identity,pidfile,timeout=6):
+    def sampler_pid(self,identity,pidfile,timeout=6,stagefile=None):
         deadline=time.monotonic()+timeout
         while True:
             assert identity not in self.responses, (
@@ -95,22 +122,43 @@ class Host:
                 if raw.strip().isdigit():return int(raw)
             except FileNotFoundError:evidence='PID file missing'
             except OSError as error:evidence=f'PID file unreadable: {type(error).__name__} errno={error.errno}'
+            if stagefile is not None:
+                try:evidence+='; fixture stage='+repr(stagefile.read_bytes()[:128])
+                except FileNotFoundError:evidence+='; fixture stage missing (script entry unconfirmed)'
+                except OSError as error:evidence+=f'; fixture stage unreadable: {type(error).__name__} errno={error.errno}'
             assert time.monotonic()<deadline, (
                 f'Temporary sampler startup deadline ({timeout}s): {evidence}; extension exit={self.process.poll()}')
             try:self.route(self.receive(min(.1,max(0,deadline-time.monotonic()))))
             except queue.Empty:pass
-    def finish(self,eof=False):
+    def finish(self,eof=False,timeout=5):
+        deadline=time.monotonic()+timeout
         if self.process.poll() is None:
             if eof:
                 self.process.stdin.close()
             else:
-                self.invoke('shutdown',{})
-            assert self.process.wait(timeout=5)==0,self.process.stderr.read().decode()
+                self.wait(self.request('shutdown',{}),timeout=timeout)
+            self.process.wait(timeout=max(.001,deadline-time.monotonic()))
+        assert self.process.returncode==0,self.process.stderr.read().decode()
         if not self.process.stdin.closed:self.process.stdin.close()
         self.process.stdout.close();self.process.stderr.close()
-    def kill(self):
-        if self.process.poll() is None:self.process.kill()
-        self.process.wait(timeout=5)
+    def cleanup(self):
+        preserve_failure(self._cleanup)
+    def _cleanup(self):
+        # Let SDK shutdown cancel sessions/drop owned sampler handles before a
+        # hard fallback. Do not reuse a deliberately denying test policy here.
+        self.policy=lambda message:True
+        try:
+            try:self.finish(timeout=5)
+            except Exception as shutdown_error:
+                if not self.process.stdin.closed:self.process.stdin.close()
+                try:self.process.wait(timeout=5)  # SDK EOF cancellation fallback.
+                except subprocess.TimeoutExpired:
+                    self.process.kill();self.process.wait(timeout=3)
+                    raise AssertionError('Fixture required hard termination after shutdown and EOF') from shutdown_error
+                raise AssertionError('Fixture graceful shutdown failed; EOF fallback completed') from shutdown_error
+        finally:
+            for pipe in (self.process.stdin,self.process.stdout,self.process.stderr):
+                if not pipe.closed:pipe.close()
 
 
 def png(path):
@@ -122,7 +170,86 @@ def action_id(view,title):
     return next(action['id'] for action in view['actions'] if action['title']==title)
 
 
+def windows_pid_script(pidfile,stagefile):
+    # Keep the failing cmdlet path for the next native evidence round. .NET
+    # markers distinguish script entry, PID publication and a fatal write error.
+    # PowerShell single-quoted literals escape apostrophes by doubling them.
+    pid=str(pidfile).replace("'","''");stage=str(stagefile).replace("'","''")
+    return ("$ErrorActionPreference = 'Stop'\ntry {\n"
+            "[IO.File]::WriteAllText('"+stage+"', 'entered-before-set-content')\n"
+            "$PID | Set-Content -Path '"+pid+"'\n"
+            "[IO.File]::WriteAllText('"+stage+"', 'pid-written-before-start-sleep')\n"
+            "Start-Sleep -Seconds 60\n"
+            "} catch { [Console]::Error.Write('sampler-fixture-pid: ' + $_.Exception.ToString()); exit 24 }\n")
+
+
+def sampler_cleanup_regression(binary, work):
+    # Reproduce a readiness failure only AFTER proving a real owned helper live.
+    # A different PID path models the native missing-file symptom without
+    # depending on Windows cmdlet behavior to trigger the failure cleanup path.
+    sampler=work/"cleanup's package"/'resources'/'sampler';sampler.mkdir(parents=True)
+    helper=sampler/('windows.ps1' if os.name=='nt' else 'color-picker-helper')
+    pidfile=work/"cleanup's.pid"
+    if os.name=='nt':
+        helper.write_text("[IO.File]::WriteAllText('"+str(pidfile).replace("'","''")+"', [string]$PID); [Threading.Thread]::Sleep(60000)")
+    else:
+        helper.write_text('#!/bin/sh\necho $$ > "'+str(pidfile)+'"\nexec /bin/sleep 60\n');helper.chmod(0o755)
+    h=Host(binary,sampler.parent.parent,work/'cleanup-data','color-picker')
+    pid=None
+    try:
+        try:
+            identity=h.request('session.open',{'sessionId':'cleanup-picker','commandName':'pick-color'})
+            pid=h.sampler_pid(identity,pidfile)
+            assert not process_gone(pid),'Cleanup regression requires a live owned helper'
+            h.sampler_pid(identity,work/'intentionally-missing.pid',timeout=.03)
+        finally:h.cleanup()
+    except AssertionError as failure:
+        assert 'PID file missing' in str(failure),failure
+        assert not getattr(failure,'__notes__',[]),failure.__notes__
+    else:raise AssertionError('Cleanup regression must enter the readiness failure path')
+    assert pid is not None
+    deadline=time.monotonic()+6
+    while not process_gone(pid):
+        assert time.monotonic()<deadline,'Owned temporary sampler survived fixture cleanup'
+        time.sleep(.01)
+    # Also cover EOF with an in-flight sampler, rather than only an idle SDK.
+    pidfile.unlink()
+    h=Host(binary,sampler.parent.parent,work/'cleanup-eof-data','color-picker')
+    try:
+        identity=h.request('session.open',{'sessionId':'eof-picker','commandName':'pick-color'})
+        pid=h.sampler_pid(identity,pidfile)
+        assert not process_gone(pid),'EOF regression requires a live owned helper'
+        h.finish(eof=True)
+        deadline=time.monotonic()+6
+        while not process_gone(pid):
+            assert time.monotonic()<deadline,'Owned temporary sampler survived SDK EOF'
+            time.sleep(.01)
+    finally:h.cleanup()
+
+
+def process_gone(pid):
+    if os.name=='nt':
+        kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+        kernel.OpenProcess.argtypes=[ctypes.c_ulong,ctypes.c_int,ctypes.c_ulong]
+        kernel.OpenProcess.restype=ctypes.c_void_p
+        kernel.GetExitCodeProcess.argtypes=[ctypes.c_void_p,ctypes.POINTER(ctypes.c_ulong)]
+        kernel.CloseHandle.argtypes=[ctypes.c_void_p]
+        handle=kernel.OpenProcess(0x1000,False,pid)
+        if not handle:
+            error=ctypes.get_last_error()
+            assert error==87,f'Cannot inspect owned temporary sampler {pid}: WinError {error}'
+            return True
+        try:
+            code=ctypes.c_ulong()
+            assert kernel.GetExitCodeProcess(handle,ctypes.byref(code))
+            return code.value!=259
+        finally:kernel.CloseHandle(handle)
+    try:os.kill(pid,0);return False
+    except ProcessLookupError:return True
+
+
 def color_suite(binary,package,work):
+    sampler_cleanup_regression(binary,work)
     data=work/'color-data'
     h=Host(binary,package,data,'color-picker')
     try:
@@ -157,7 +284,7 @@ def color_suite(binary,package,work):
         h.open('menu-again','menu-bar')
         h.finish()
         assert [m['method'] for m in h.calls][-2:]==['host.tray.remove','host.background.release']
-    finally:h.kill()
+    finally:h.cleanup()
     # Denied retain must not create a tray; cancelled creation cleanup owns the
     # tray lock until both removal and lease release complete, even if reopened.
     h=Host(binary,package,work/'tray-cancel-data','color-picker')
@@ -198,11 +325,11 @@ def color_suite(binary,package,work):
         h.reply(removal)
         h.until(lambda:h.calls[-1]['method']=='host.background.release')
         h.finish()
-    finally:h.kill()
+    finally:h.cleanup()
     # Cancellation and success run a real temporary helper process, no desktop UI.
     sampler=work/'sampler-package'/'resources'/'sampler';sampler.mkdir(parents=True)
     helper=sampler/('windows.ps1' if os.name=='nt' else 'color-picker-helper')
-    pidfile=work/'sampler.pid'
+    pidfile=work/'sampler.pid';stagefile=work/'sampler.stage'
     if os.name=='nt':helper.write_text("[Console]::Error.Write('sampler-fixture-intentional-failure'); exit 23")
     else:helper.write_text("#!/bin/sh\nprintf '%s' 'sampler-fixture-intentional-failure' >&2\nexit 23\n");helper.chmod(0o755)
     h=Host(binary,sampler.parent.parent,work/'sampler-data','color-picker')
@@ -215,25 +342,21 @@ def color_suite(binary,package,work):
             assert 'sampler-fixture-intentional-failure' in str(error),error
         else:raise AssertionError('Failing sampler unexpectedly published a PID')
         assert 'error' in h.wait(failed,allow_error=True)
-        if os.name=='nt':helper.write_text("$PID | Set-Content -Path '"+str(pidfile).replace("'","''")+"'; Start-Sleep -Seconds 60")
+        if os.name=='nt':
+            # The same instrumented fixture must fail immediately on an actual
+            # write/command error, including paths containing apostrophes.
+            helper.write_text(windows_pid_script(work/'missing-parent'/"sampler's.pid",stagefile))
+            failed=h.request('session.open',{'sessionId':'failed-write-picker','commandName':'pick-color'})
+            try:h.sampler_pid(failed,pidfile,stagefile=stagefile)
+            except AssertionError as error:assert 'sampler-fixture-pid:' in str(error),error
+            else:raise AssertionError('Invalid fixture write unexpectedly published a PID')
+            assert 'error' in h.wait(failed,allow_error=True)
+            stagefile.unlink()  # The next attempt must prove its own script entry.
+            helper.write_text(windows_pid_script(pidfile,stagefile))
         else:helper.write_text('#!/bin/sh\necho $$ > "'+str(pidfile)+'"\nexec /bin/sleep 60\n');helper.chmod(0o755)
         identity=h.request('session.open',{'sessionId':'picker','commandName':'pick-color','preferences':{},'argumentValues':{}})
-        pid=h.sampler_pid(identity,pidfile)
-        def gone():
-            if os.name=='nt':
-                kernel=ctypes.WinDLL('kernel32',use_last_error=True)
-                kernel.OpenProcess.restype=ctypes.c_void_p
-                kernel.GetExitCodeProcess.argtypes=[ctypes.c_void_p,ctypes.POINTER(ctypes.c_ulong)]
-                kernel.CloseHandle.argtypes=[ctypes.c_void_p]
-                handle=kernel.OpenProcess(0x1000,False,pid)
-                if not handle:return True
-                try:
-                    code=ctypes.c_ulong()
-                    assert kernel.GetExitCodeProcess(handle,ctypes.byref(code))
-                    return code.value!=259
-                finally:kernel.CloseHandle(handle)
-            try:os.kill(pid,0);return False
-            except ProcessLookupError:return True
+        pid=h.sampler_pid(identity,pidfile,stagefile=stagefile if os.name=='nt' else None)
+        def gone():return process_gone(pid)
         assert not gone(),'Temporary sampler must be running before cancellation'
         dispose=h.request('session.dispose',{'sessionId':'picker'})
         h.wait(dispose)
@@ -245,7 +368,7 @@ def color_suite(binary,package,work):
         assert h.open('picked','pick-color')['mode']=='no-view'
         assert [m for m in h.calls if m['method']=='host.clipboard.write'][-1]['params']['text']=='#FF0000'
         h.finish(eof=True)
-    finally:h.kill()
+    finally:h.cleanup()
     # Native-v2 import preserves unknown keys and current history without reimport.
     legacy=work/'native-color.json';legacy.write_text(json.dumps({'history':[{'color':'#123456','isFavorite':True,'title':'Brand'}],'future':42}))
     original=legacy.read_bytes()
@@ -254,7 +377,7 @@ def color_suite(binary,package,work):
         h.open('favorites','favorite-colors');assert h.store()['history'][0]['title']=='Brand';assert h.store()['future']==42
         assert legacy.read_bytes()==original
         h.finish()
-    finally:h.kill()
+    finally:h.cleanup()
 
 
 def timers_suite(binary,package,work):
@@ -291,7 +414,7 @@ def timers_suite(binary,package,work):
         assert len([m for m in h.calls if m['method']=='host.background.retain'])==2
         # EOF must stop worker promptly while preserving active state for restoration.
         h.finish(eof=True)
-    finally:h.kill()
+    finally:h.cleanup()
     h=Host(binary,package,work/'timers-data','timers')
     try:
         assert not h.calls
@@ -302,7 +425,7 @@ def timers_suite(binary,package,work):
         h.until(lambda:h.calls[-1]['method']=='host.background.release')
         assert not h.store()['timers']
         h.finish()
-    finally:h.kill()
+    finally:h.cleanup()
     # Cancellation abandons the activation response, never persisted pending work.
     legacy_cancel=work/'activation-timers.json'
     legacy_cancel.write_text(json.dumps({'timers':[{'id':'restore','name':'Tea','status':'finished','soundPlayed':True,'notificationSent':False}]}))
@@ -316,7 +439,7 @@ def timers_suite(binary,package,work):
         h.until(lambda:h.store()['timers'][0]['notificationSent'] is True)
         h.until(lambda:h.calls[-1]['method']=='host.background.release')
         h.finish()
-    finally:h.kill()
+    finally:h.cleanup()
     # Completed, silent fixtures exercise real reverse notification acknowledgement,
     # failed delivery/retry, removal/retry, and idle release with no audio or GUI.
     legacy=work/'old-timers.json'
@@ -333,7 +456,7 @@ def timers_suite(binary,package,work):
         assert legacy.read_bytes()==original
         # Restart with a deterministic pending retry timestamp, avoiding a 30s sleep.
         h.finish(eof=True)
-    finally:h.kill()
+    finally:h.cleanup()
     data=work/'notification-data';path=data/'timers'/'storage.json';store=json.loads(path.read_text());store['timers'][0]['lastNotificationAttempt']=0;path.write_text(json.dumps(store))
     h=Host(binary,package,data,'timers')
     try:
@@ -347,7 +470,7 @@ def timers_suite(binary,package,work):
         h.action('manager','timers:stop:due')
         assert h.store()['pendingNotificationRemovals'][0]['id']=='due'
         h.finish(eof=True)
-    finally:h.kill()
+    finally:h.cleanup()
     store=json.loads(path.read_text());store['pendingNotificationRemovals'][0]['lastAttempt']=0;path.write_text(json.dumps(store))
     h=Host(binary,package,data,'timers')
     try:
@@ -356,7 +479,7 @@ def timers_suite(binary,package,work):
         h.until(lambda:h.calls[-1]['method']=='host.background.release')
         assert any(m['method']=='host.notifications.remove' for m in h.calls)
         h.finish()
-    finally:h.kill()
+    finally:h.cleanup()
 
 
 def run(binary,package,slug):
@@ -364,8 +487,8 @@ def run(binary,package,slug):
     manifest=json.loads((pathlib.Path(package)/'extension.json').read_text())
     assert info['id']==manifest['id'] and info['version']==manifest['version']
     assert set(info['commands'])=={c['name'] for c in manifest['commands']}
-    with tempfile.TemporaryDirectory(prefix=slug+'-stdio-') as work:
-        (color_suite if slug=='color-picker' else timers_suite)(binary,pathlib.Path(package),pathlib.Path(work))
+    with temporary_work(prefix=slug+'-stdio-') as work:
+        (color_suite if slug=='color-picker' else timers_suite)(binary,pathlib.Path(package),work)
     print(json.dumps({'passed':True,'slug':slug,'commands':len(info['commands']),'realProcess':True,'desktopEffects':False,'windowsVerified':os.name=='nt'}))
 
 

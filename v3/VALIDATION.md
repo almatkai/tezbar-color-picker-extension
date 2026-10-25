@@ -92,3 +92,40 @@ Windows runtime or live desktop effects were available/exercised. Parent must ru
 the updated native Windows job and extracted-package smoke before claiming a
 Windows fix. Detailed evidence and follow-up instructions:
 `/tmp/tezbar-external-rust/color-windows-fix.md`.
+
+Windows PID evidence round (base f34767e7): job 121161491586 in run 40190899105
+passed all 15 domain tests, the six focused Python tests and the actual helper's
+intentional stderr/exit-23 assertion. The next helper still reached the unchanged
+six-second startup deadline with no PID file and a live extension. WinError32
+during temporary-directory removal then masked that assertion; the log does not
+identify the process holding the directory. SYSTEMROOT preservation is retained,
+but it did not by itself resolve this native failure.
+
+A real-process macOS regression reproduced the fixture's abrupt-parent-cleanup
+defect: after a deliberately failed PID-file wait, its proven-live owned helper
+survived the old `finally: h.kill()`. Cleanup now gives the SDK a bounded graceful
+shutdown, servicing reverse RPC; EOF is a bounded fallback before hard termination
+of this exact Rust child. Needing a fallback still fails/reports cleanup. Process
+and directory cleanup errors preserve the primary assertion and report both
+errors (including on Python 3.9). The regression requires the helper dead after
+failure cleanup; another actual-process case requires it dead after active EOF.
+The existing session.dispose live-before/dead-after and blur-release checks remain.
+
+Native Windows diagnosis is still pending. The original PID fixture keeps
+`Set-Content` and `Start-Sleep`, now with `$ErrorActionPreference = 'Stop'` and a
+try/catch that reports `sampler-fixture-pid:` plus the actual exception to stderr
+and exits 24. Small .NET stage files distinguish entry before Set-Content from PID
+publication before Start-Sleep; missing stage data explicitly leaves script entry
+unconfirmed. An invalid-parent write exercises that same fatal fixture path on
+Windows. Separate .NET-only real helpers exercise failure cleanup/EOF and quoted
+paths without cmdlet/provider dependencies; they do not replace the failing
+cmdlet fixture. No production sampler, SDK, runtime source or startup deadline
+was changed.
+
+Local verification: 12 focused Python tests, all 15 domain tests and actual macOS
+stdio integration pass, with serial `-j1` Rust checks and strict all-target Clippy.
+The added Windows script/error/handle paths have not run here. The parent must
+review/push this diagnostic round and require the complete native Windows job,
+including extracted-package smoke; a green Mac run is not a Windows resolution.
+Evidence, hashes and next-run interpretation:
+`/tmp/tezbar-external-rust/color-windows-pid-fix.md`.

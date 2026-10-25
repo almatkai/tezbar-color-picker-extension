@@ -7,7 +7,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from protocol_test import Host
+from protocol_test import Host, preserve_failure, temporary_work
 
 
 class HostEnvironmentTests(unittest.TestCase):
@@ -76,6 +76,58 @@ class SamplerStartupTests(unittest.TestCase):
     def test_sampler_returns_pid_without_changing_cancellation_precondition(self):
         self.pidfile.write_bytes(b'12345\r\n')
         self.assertEqual(self.host.sampler_pid('picker', self.pidfile, timeout=.02), 12345)
+
+    def test_sampler_deadline_reports_entry_stage_without_unbounded_output(self):
+        stagefile = self.pidfile.with_suffix('.stage')
+        stagefile.write_bytes(b'entered-before-set-content' + b'x' * 1000)
+        with self.assertRaisesRegex(AssertionError, 'fixture stage=.*entered-before-set-content') as failure:
+            self.host.sampler_pid('picker', self.pidfile, timeout=.02, stagefile=stagefile)
+        self.assertLess(len(str(failure.exception)), 400)
+
+    def test_sampler_deadline_distinguishes_no_script_entry(self):
+        with self.assertRaisesRegex(AssertionError, 'script entry unconfirmed'):
+            self.host.sampler_pid('picker', self.pidfile, timeout=.02, stagefile=self.pidfile.with_suffix('.stage'))
+
+
+class FailureCleanupTests(unittest.TestCase):
+    def test_eof_from_live_peer_does_not_block_on_open_stderr(self):
+        host = Host.__new__(Host)
+        host.messages = queue.Queue()
+        host.messages.put(None)
+        stderr = SimpleNamespace(read=lambda: self.fail('Live stderr read would defeat the deadline'))
+        host.process = SimpleNamespace(poll=lambda: None, stderr=stderr)
+        with self.assertRaisesRegex(AssertionError, 'Unexpected EOF: extension still running'):
+            host.receive(timeout=.02)
+
+    def test_cleanup_failure_without_primary_error_must_fail(self):
+        def cleanup():raise PermissionError('owned fixture directory still in use')
+        with self.assertRaisesRegex(PermissionError, 'still in use'):
+            preserve_failure(cleanup)
+
+    def test_process_cleanup_error_keeps_original_assertion_and_reports_both(self):
+        host = Host.__new__(Host)
+        primary = AssertionError('Temporary sampler startup deadline: PID file missing')
+        with patch.object(host, '_cleanup', side_effect=RuntimeError('owned helper still live')):
+            try:
+                try:raise primary
+                finally:host.cleanup()
+            except AssertionError as failure:
+                self.assertIs(failure, primary)
+                self.assertIn('owned helper still live', '\n'.join(failure.__notes__))
+            else:self.fail('Original readiness assertion was swallowed')
+
+    def test_directory_cleanup_error_keeps_original_assertion_and_reports_both(self):
+        primary = AssertionError('Temporary sampler startup deadline: PID file missing')
+        with patch('protocol_test.tempfile.TemporaryDirectory') as directory:
+            directory.return_value.name = 'owned-fixture'
+            directory.return_value.cleanup.side_effect = PermissionError('WinError 32: directory in use')
+            try:
+                with temporary_work('fixture-'):raise primary
+            except AssertionError as failure:
+                self.assertIs(failure, primary)
+                self.assertIn('WinError 32', '\n'.join(failure.__notes__))
+            else:self.fail('Original readiness assertion was swallowed')
+            directory.return_value.cleanup.assert_called_once_with()
 
 
 if __name__ == '__main__':
