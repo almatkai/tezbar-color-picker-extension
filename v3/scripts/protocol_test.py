@@ -250,6 +250,10 @@ def process_gone(pid):
 
 def color_suite(binary,package,work):
     sampler_cleanup_regression(binary,work)
+    probe_failures=[]
+    if os.name=='nt':
+        from windows_cmdlet_probe import run_probe
+        probe_failures=run_probe(binary,package,work/'cmdlet-probe',Host)
     data=work/'color-data'
     h=Host(binary,package,data,'color-picker')
     try:
@@ -378,6 +382,8 @@ def color_suite(binary,package,work):
         assert legacy.read_bytes()==original
         h.finish()
     finally:h.cleanup()
+
+    assert not probe_failures, 'Windows cmdlet/production -Check probes failed: '+repr(probe_failures)
 
 
 def timers_suite(binary,package,work):

@@ -1,4 +1,6 @@
 """Focused regressions for the headless host used by native CI and ZIP smoke."""
+import contextlib
+import io
 import os
 import pathlib
 import queue
@@ -8,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from protocol_test import Host, preserve_failure, temporary_work
+from windows_cmdlet_probe import run_probe
 
 
 class HostEnvironmentTests(unittest.TestCase):
@@ -128,6 +131,56 @@ class FailureCleanupTests(unittest.TestCase):
                 self.assertIn('WinError 32', '\n'.join(failure.__notes__))
             else:self.fail('Original readiness assertion was swallowed')
             directory.return_value.cleanup.assert_called_once_with()
+
+
+class WindowsProbeTests(unittest.TestCase):
+    def run_matrix(self, broken=None):
+        owners, cleaned, closed = [], [], []
+        class Job:
+            def __init__(self, pid):owners.append(pid)
+            def close(self):closed.append(True)
+        class Peer:
+            def __init__(self, binary, package, data, slug):
+                self.name = data.name[:-5]
+                self.work = package.parent
+                self.process = SimpleNamespace(pid=123)
+            def request(self, method, params):
+                if len(owners) <= len(cleaned):raise AssertionError('Helper requested before tree ownership')
+                return self.name
+            def wait(self, identity, allow_error, timeout):
+                if timeout != 6:raise AssertionError('Changed probe deadline')
+                if self.name == broken:raise AssertionError('Response deadline ' + 'x' * 4000)
+                if self.name.endswith('-invalid'):
+                    (self.work / 'stage').write_text('before-write' if self.name == 'explicit-invalid' else 'entered')
+                    cause = 'DirectoryNotFoundException' if self.name == 'dotnet-invalid' else 'SetContentCommand'
+                    if broken == 'wrong-error' and self.name == 'explicit-invalid':cause = 'Modules_ModuleNotFound'
+                    return {'error': {'message': 'sampler-cmdlet-probe: ' + cause}}
+                (self.work / 'stage').write_text('complete')
+                if self.name.endswith('-valid') and broken != 'missing-write':
+                    (self.work / "probe's.pid").write_bytes(b'12345\r\n')
+                return {'result': {'mode': 'no-view'}}
+            def cleanup(self):cleaned.append(self.name)
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()) as output:
+            work = pathlib.Path(directory) / 'probe'
+            failures = run_probe('fixture.exe', pathlib.Path(directory), work, Peer, Job)
+        self.assertEqual(len(owners), 8)
+        self.assertEqual(len(cleaned), 8)
+        self.assertEqual(len(closed), 8)
+        self.assertEqual(len(output.getvalue().splitlines()), 8)
+        self.assertLess(len(output.getvalue()), 5000)
+        return failures
+
+    def test_timeout_collects_remaining_cases_and_cleans_each_owned_tree(self):
+        self.assertEqual(self.run_matrix('resolve-set-content'), ['resolve-set-content'])
+
+    def test_production_check_failure_cannot_be_accepted_as_success(self):
+        self.assertEqual(self.run_matrix('production-check'), ['production-check'])
+
+    def test_import_error_cannot_impersonate_the_expected_write_error(self):
+        self.assertEqual(self.run_matrix('wrong-error'), ['explicit-invalid'])
+
+    def test_success_response_cannot_conceal_missing_write(self):
+        self.assertEqual(self.run_matrix('missing-write'), ['dotnet-valid', 'autoload-valid', 'explicit-valid'])
 
 
 if __name__ == '__main__':

@@ -129,3 +129,35 @@ review/push this diagnostic round and require the complete native Windows job,
 including extracted-package smoke; a green Mac run is not a Windows resolution.
 Evidence, hashes and next-run interpretation:
 `/tmp/tezbar-external-rust/color-windows-pid-fix.md`.
+
+
+Windows cmdlet differential round (base 0e873f73): parent-supplied native job
+121165863741/run 40192358541 passes 15 domain tests, 12 focused tests, real .NET
+failure-cleanup/active-EOF controls and intentional stderr/exit-23. The original
+invalid-parent Set-Content fixture still times out at six seconds after its .NET
+entry marker, without its catch stderr. This locates the interval, not its cause.
+No module-autoload root cause or native fix is claimed.
+
+A temporary Windows-only diagnostic matrix now runs after the .NET lifecycle
+controls, before the unchanged original stdio suite. Eight serial cases compare
+.NET valid/invalid writes, Get-Command resolution, ordinary Set-Content valid/
+invalid writes, OS-owned absolute Management-module import (autoload disabled)
+plus the same writes, and the unmodified real production sampler invoked with
+-Check. All use the actual Rust PowerShell argv and unchanged filtered Host
+environment; -Check exits before DPI/capture/forms. Each request has a six-second
+bound. Nonsecret result, elapsed time, stage, exception type/error ID and numeric
+PID bytes are bounded. All cases report before the original failure can abort;
+collected probe failures remain failing gates at suite end. The original PID,
+error, cancellation, disposal, EOF, blur and synthetic clipboard assertions stay.
+
+Each probe Rust process is assigned to a private kill-on-close Windows Job Object
+before requesting a helper, owning PowerShell and any Add-Type compiler child.
+SDK shutdown/EOF cleanup remains first; closing that exact job contains leftover
+descendants. No global PID termination or ambient environment expansion is used.
+Four focused regressions exercise timeout continuation/ownership/cleanup,
+production-check rejection, write-error identity and missing-write rejection; the last was red before
+adding file/stage assertions. Local macOS: all 16 focused tests, real stdio and
+fmt pass. New PowerShell/Win32 paths have NOT executed locally. This is an evidence
+patch for one parent-owned native CI run, not a publication-ready Windows fix.
+Full evidence, hashes, unconfirmed hypotheses and parent steps:
+/tmp/tezbar-external-rust/color-windows-cmdlet-fix.md.
