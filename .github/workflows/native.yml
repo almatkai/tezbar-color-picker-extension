@@ -1,0 +1,63 @@
+name: Native build test and package
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+            executable: tezbar-color-picker
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            executable: tezbar-color-picker.exe
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      CARGO_BUILD_JOBS: 1
+    defaults:
+      run:
+        working-directory: v3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Require immutable SDK dependency before isolated release validation
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          text = pathlib.Path('Cargo.toml').read_text()
+          line = next(line for line in text.splitlines() if line.startswith('tezbar-extension-sdk ='))
+          assert 'path =' not in line, 'Parent must replace local SDK path with approved immutable git revision'
+          assert re.search(r'rev\s*=\s*"[0-9a-f]{40}"', line), 'SDK dependency must pin full commit SHA'
+          PY
+      - name: Build package-owned native sampler
+        if: runner.os == 'macOS'
+        run: bash resources/sampler/build.sh
+      - name: Compile Windows sampler without opening UI
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: '& "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File resources/sampler/windows.ps1 -Check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets --target ${{ matrix.target }} -j1 -- -D warnings
+      - run: cargo test --locked -j1 --target ${{ matrix.target }} -- --test-threads=1
+      - run: cargo build --release --locked -j1 --target ${{ matrix.target }}
+      - name: Package verified native executable
+        run: python scripts/package.py --target ${{ matrix.target }} --binary target/${{ matrix.target }}/release/${{ matrix.executable }}
+      - name: Smoke packaged executable without source or toolchain lookup
+        run: python scripts/smoke.py --target ${{ matrix.target }} --archive dist/color-picker-${{ matrix.target }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: color-picker-${{ matrix.target }}
+          path: v3/dist/*
+          if-no-files-found: error

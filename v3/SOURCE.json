@@ -1,0 +1,429 @@
+{
+  "baseline": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+  "adapter": "src-tauri/src/native_core/extensions/v2_color_picker.rs",
+  "inputProvenance": {
+    "slug": "color-picker",
+    "status": "source-inputs-only",
+    "standalone": false,
+    "source_pack_complete_for_research": true,
+    "repository": "almatkai/color-picker",
+    "repository_exists_at_inventory": false,
+    "repository_visibility": null,
+    "repository_proposed_name": "color-picker",
+    "publish_allowed": "not-approved; research inputs need integration/license review",
+    "app_base": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+    "app_branch": "fix/beta15-external-rust-extensions",
+    "source_sha256": "84c91a77afabce2d7f83eeb3516ae4e769397ad0612fc69d0bb8805fc5eeb27b",
+    "source_module": "src-tauri/src/native_core/extensions/v2_color_picker.rs",
+    "manifest": "manifest.v2.json",
+    "manifest_icon_original_copied": true,
+    "manifest_asset_references": [
+      "icon.png"
+    ],
+    "actual_missing_assets": [],
+    "commands": 9,
+    "runtime_validation": "not-run",
+    "remaining_port_couplings": "Host form/UI/storage/AI/clipboard/selection/blur routes plus direct Tauri tray/AppHandle integration. Sampler resource lookup and build.sh assume app layout. Image extraction is Rust image decoding, not native/image-colors; no image-colors helper needed. Test include_str! points outside this module to renderer form-runtime.tsx; adapt the test seam, do not treat it as a missing runtime asset.",
+    "host_request_routes": [
+      "core:ai:extension-ask",
+      "core:platform:open-settings",
+      "core:platform:paste-text",
+      "core:platform:selected-text",
+      "core:platform:suppress-blur",
+      "core:platform:visibility"
+    ],
+    "sdk_functions": [
+      "copy",
+      "no_view",
+      "read_store",
+      "unchanged",
+      "update_store",
+      "view"
+    ],
+    "license_notices": [
+      "App LICENSE retained exactly (Apache-2.0, existing Almat notice); retain Raycast MIT and original author/contributor metadata; not one license for all third-party assets. Original icons preserved; no trademark grant or independent authorship invented.",
+      "color-namer 1.4.0 MIT notice retained; all six palettes exactly match upstream after #/case normalization. NTC original Chirag Mehta notice specifies CC BY 2.5, NOT MIT-only; original notice/source and legal code retained. Preserve attribution/link and note that data is converted to JSON. Do not infer ownership/trademark rights for the named pantone list."
+    ],
+    "helper_downloads": [],
+    "installed_public_metadata": {
+      "author": "thomas",
+      "contributors": [
+        "otakustay",
+        "EmersonEmerson",
+        "pernielsentikaer",
+        "arronhunt",
+        "kvdo2",
+        "litomore",
+        "samuelkraft",
+        "ridemountainpig",
+        "xilopaint",
+        "anwarulislam",
+        "yusifaliyevpro",
+        "elibattistoni",
+        "clins1994",
+        "just_me"
+      ],
+      "license": "MIT",
+      "version": null
+    },
+    "installed_upstream_exact_commit": "unknown",
+    "upstream_snapshot": {
+      "slug": "color-picker",
+      "repository": "raycast/extensions",
+      "snapshot_commit": "97ee2594a03a94fa439c26864d85ad9a96dc9fc9",
+      "installed_exact_upstream_commit": "unknown",
+      "extension_path": "extensions/color-picker",
+      "errors": []
+    },
+    "existing_repository_upstream": null,
+    "installed_bundle_hash_evidence": [
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/color-names.js",
+        "size": 356673,
+        "sha256": "4bf8f22a678530553554d28c4742e0684a9ced9bdc2a9d85041134983f9d94a2",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/color-wheel.js",
+        "size": 396248,
+        "sha256": "7e9c9ac6d5328de9f8a4860b011cae1187a75a12f0db753b266ca8abbbffc0dd",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/convert-color.js",
+        "size": 193986,
+        "sha256": "aac225c0e0f4e6f927a9684f559517e42502735481fe85de0e63f6e62632a6d4",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/extract-color.js",
+        "size": 79093,
+        "sha256": "ff62e759ac3b55283e2f0b75f89a61315f8c7f2bce387faeac894d5704351aeb",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/favorite-colors.js",
+        "size": 194759,
+        "sha256": "34805cc95f06708eb6f40e15ac2e6c9339fcbf531dd98e1a57efd567640cbfc8",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/generate-colors.js",
+        "size": 203831,
+        "sha256": "8d696848e2b62ac2449d5204c393bc7bddc4b629cf37ab6c196369f0f17ac678",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/menu-bar.js",
+        "size": 196134,
+        "sha256": "a587926bfc3298ddf01403e3a15a34c31fd8687d80578c41609dd92dc6133d8b",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/organize-colors.js",
+        "size": 212908,
+        "sha256": "68059ca21b31eb575b60af5e7bb1da81ea1e915aad77567f0892b3fed251c888",
+        "copied": false
+      },
+      {
+        "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/.sc-build/pick-color.js",
+        "size": 674638,
+        "sha256": "9ebf56c9a8a11ce32482a78b377a8824e29e9a4c8c420d495a9ee45bab3da4de",
+        "copied": false
+      }
+    ],
+    "files": [
+      {
+        "package": "color-picker",
+        "path": "src-tauri/src/native_core/extensions/v2_color_picker.rs",
+        "size": 107596,
+        "sha256": "84c91a77afabce2d7f83eeb3516ae4e769397ad0612fc69d0bb8805fc5eeb27b",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "src-tauri/src/native_core/extensions/v2_color_picker.rs"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "LICENSE",
+        "size": 10750,
+        "sha256": "0ed6b1b2760294d4aaaa45be38e166fcc0168e1dd5190423c096fcbe1c94afbf",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "LICENSE"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "licenses/raycast-extensions-MIT.txt",
+        "size": 1064,
+        "sha256": "7f727f8b20cdd0e65f84e70b9cac2fce337dcecee4dc88955eb012ea27f02755",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "licenses/raycast-extensions-MIT.txt"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "manifest.v2.json",
+        "size": 6948,
+        "sha256": "69085797313704dc791a00bdd3cc262f26aceea5fa4b2442a35b8a163c4cc246",
+        "origin": {
+          "type": "catalog-selection",
+          "path": "src-tauri/src/native_core/extensions/v2_catalog.json",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "catalog_sha256": "a9f82ddd782dc56b3ed43b9d4d51651ce10a51a368a7befc942f200b2601e955"
+        },
+        "note": "Selected unmodified JSON object; serialization only. Runtime/verification declarations are not validation."
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/installed-package.json",
+        "size": 6152,
+        "sha256": "d70c24f3faefca9bff12c9985a589aacdf073b9e480120df3a7ce63217a35b54",
+        "origin": {
+          "type": "local-read-only",
+          "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/package.json"
+        },
+        "note": "Original public package metadata only; no preferences/storage/cache copied."
+      },
+      {
+        "package": "color-picker",
+        "path": "assets/icon.png",
+        "size": 120059,
+        "sha256": "78d404032debf0ec372c02f21757eed6b576550545d4fbc4c5c5d6fef173e963",
+        "origin": {
+          "type": "local-read-only",
+          "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/assets/icon.png"
+        },
+        "redistribution_review": "Upstream metadata declares MIT; original branding retained, no trademark grant inferred."
+      },
+      {
+        "package": "color-picker",
+        "path": "assets/rgb-color-wheel.png",
+        "size": 24996,
+        "sha256": "d7d6e222de45ae6944960d670d4beee2d9350f5ecb4b6581c7e3eadf20419b17",
+        "origin": {
+          "type": "local-read-only",
+          "path": "/Users/almat/Library/Application Support/com.tezbar.app/extensions/color-picker/assets/rgb-color-wheel.png"
+        },
+        "redistribution_review": "Upstream metadata declares MIT; original branding retained, no trademark grant inferred."
+      },
+      {
+        "package": "color-picker",
+        "path": "src-tauri/src/native_core/extensions/v2_color_picker_names.json",
+        "size": 74196,
+        "sha256": "932bbf453227a9bac21d563f64f5613214cb21899cdfc751dd687dd3dd66af55",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "src-tauri/src/native_core/extensions/v2_color_picker_names.json"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "src-tauri/src/native_core/extensions/v2_color_picker_LICENSE.txt",
+        "size": 1082,
+        "sha256": "18a369920eb663815f25ea3d8f32f1c0ac5ee131c41d66f90898dc00bb244ba3",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "src-tauri/src/native_core/extensions/v2_color_picker_LICENSE.txt"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "native/color-picker/main.swift",
+        "size": 1447,
+        "sha256": "c1ee2bcbf7309776193c2062791518758a597477e36a59a7eede2dfeacaedf0c",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "native/color-picker/main.swift"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "native/color-picker/build.sh",
+        "size": 321,
+        "sha256": "c61c0a8c8c919de0046f87ae760b6c440d51e1ebaf72442ca5149be736b2cec8",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "native/color-picker/build.sh"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "native/color-picker/windows.ps1",
+        "size": 8707,
+        "sha256": "42c2b6030eb83f6a77b7463d2ba636cc3d85f422549ce97cf1f5a4f8251106b7",
+        "origin": {
+          "type": "app-git",
+          "commit": "fe71ca87f21ac4ff31505010c228f8abda0f2a89",
+          "path": "native/color-picker/windows.ps1"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/upstream-directory.json",
+        "size": 16596,
+        "sha256": "9b396d8d2e47e1bd145c14e6e66e724a97c51ca9fd2f2f609dc5f4a4d01505ae",
+        "origin": {
+          "type": "github-api",
+          "repository": "raycast/extensions",
+          "commit": "97ee2594a03a94fa439c26864d85ad9a96dc9fc9",
+          "path": "extensions/color-picker"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/current-upstream/README.md",
+        "size": 5272,
+        "sha256": "de0601203f149376583ef390a3b48770d02320bcfe50f6502267633ca749b701",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/raycast/extensions/97ee2594a03a94fa439c26864d85ad9a96dc9fc9/extensions/color-picker/README.md"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/current-upstream/package.json",
+        "size": 7331,
+        "sha256": "7cd9fee2bfb48f03bfe320e5abf45f763274d65e9d6207706604046c280a8697",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/raycast/extensions/97ee2594a03a94fa439c26864d85ad9a96dc9fc9/extensions/color-picker/package.json"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/current-upstream/repository-LICENSE",
+        "size": 1064,
+        "sha256": "7f727f8b20cdd0e65f84e70b9cac2fce337dcecee4dc88955eb012ea27f02755",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/raycast/extensions/97ee2594a03a94fa439c26864d85ad9a96dc9fc9/LICENSE"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/LICENSE.md",
+        "size": 1082,
+        "sha256": "18a369920eb663815f25ea3d8f32f1c0ac5ee131c41d66f90898dc00bb244ba3",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/LICENSE.md"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/README.md",
+        "size": 3425,
+        "sha256": "1563d58c4c1a33f60da957a9366bd4028a2f35bc92c49770568f1d8d41391c11",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/README.md"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/lib/colors/basic.js",
+        "size": 800,
+        "sha256": "e40b352a08f732d398aef9d939c85e94e57882894e0341e2dfb4f4aea113baba",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/lib/colors/basic.js"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/lib/colors/html.js",
+        "size": 6037,
+        "sha256": "54f9abd80a740d21c1884e4e1e4fc27495af102e37166e887bf89d258b14e517",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/lib/colors/html.js"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/lib/colors/ntc.js",
+        "size": 84424,
+        "sha256": "c7059d47c3eba93806725184821a4ca55e13eb0c30815e8d1f714c73379dd4c8",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/lib/colors/ntc.js"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/lib/colors/pantone.js",
+        "size": 5674,
+        "sha256": "8b1de05a7ae31f5007539e395f3268f63a068e19b8882cdf42205c08085e4d0e",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/lib/colors/pantone.js"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/lib/colors/roygbiv.js",
+        "size": 280,
+        "sha256": "018fd8b228b4865af8ac288a071ba0ea1785e58d7bc1751f9189d0e7d13e67c1",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/lib/colors/roygbiv.js"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/color-namer-1.4.0/lib/colors/x11.js",
+        "size": 6325,
+        "sha256": "76914b224ef13bc0bc43e54fb58939479328cfb7b4965e4008c7c8a83fb566e0",
+        "origin": {
+          "type": "https",
+          "url": "https://raw.githubusercontent.com/colorjs/color-namer/abb3d184ab63db9327908319cc45b55c91493bb7/lib/colors/x11.js"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/ntc/ntc.js",
+        "size": 44369,
+        "sha256": "bcb9ddf935b5737a28339786b6d93c28a5073714aa2be8ae5655aaa764fd6ad1",
+        "origin": {
+          "type": "https",
+          "url": "https://chir.ag/projects/ntc/ntc.js"
+        }
+      },
+      {
+        "package": "color-picker",
+        "path": "provenance/ntc/CC-BY-2.5-legalcode.html",
+        "size": 35033,
+        "sha256": "6f53ec1584dd401724c1cae0fc1139249508ce24cf0891cc70fd6468f4d4b689",
+        "origin": {
+          "type": "https",
+          "url": "https://creativecommons.org/licenses/by/2.5/legalcode"
+        }
+      }
+    ]
+  },
+  "standaloneSamplerChanges": [
+    {
+      "path": "resources/sampler/windows.ps1",
+      "sha256": "58b6072c1e0640cae1058028a54839d88be1741b7aa265e48dc4c5cbaf5514d4",
+      "inputPath": "native/color-picker/windows.ps1",
+      "inputSha256": "42c2b6030eb83f6a77b7463d2ba636cc3d85f422549ce97cf1f5a4f8251106b7",
+      "changes": "Derivative of the app baseline sampler: adds terminating errors, compile-only -Check before DPI/capture/forms, and shared deterministic OS-module bootstrap before Utility cmdlets. Original sampler UI and capture code retained; not byte-identical to the input."
+    },
+    {
+      "path": "resources/sampler/windows-modules.ps1",
+      "sha256": "5c81a575c833075d04c1c14312ae2812aab4e29cc4c0e803e91f9cb76c09d5d3",
+      "origin": "Standalone Rust-port bootstrap, Apache-2.0; OS modules are imported at runtime and not redistributed.",
+      "changes": "Disables autoload in the sampler script scope; imports Utility from its absolute PSHOME manifest. Optional Management is used only by headless Set-Content lifecycle fixtures."
+    }
+  ]
+}

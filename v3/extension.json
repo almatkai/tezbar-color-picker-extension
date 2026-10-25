@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 3,
+  "id": "com.tezbar.native.color-picker",
+  "slug": "color-picker",
+  "name": "Color Picker",
+  "version": "1.0.0",
+  "description": "Pick and organize colors, everywhere on your Mac",
+  "author": "thomas",
+  "icon": "resources/icon.png",
+  "runtime": "rust",
+  "replaces": [
+    "raycast.color-picker"
+  ],
+  "platforms": [
+    "macOS",
+    "Windows"
+  ],
+  "preferences": [
+    {
+      "data": [
+        {
+          "title": "HEX - #FF6363",
+          "value": "hex"
+        },
+        {
+          "title": "HEX Lower Case - #ff6363",
+          "value": "hex-lower-case"
+        },
+        {
+          "title": "HEX No Prefix - FF6363",
+          "value": "hex-no-prefix"
+        },
+        {
+          "title": "RGB - rgb(255 99 99 / 100%)",
+          "value": "rgb"
+        },
+        {
+          "title": "RGB % - rgb(100% 38% 38% / 100%)",
+          "value": "rgb-percentage"
+        },
+        {
+          "title": "RGBA - rgba(255, 99, 99, 1)",
+          "value": "rgba"
+        },
+        {
+          "title": "RGBA % - rgba(100%, 39%, 39%, 1)",
+          "value": "rgba-percentage"
+        },
+        {
+          "title": "HSLA - hsla(0, 100%, 69%, 1)",
+          "value": "hsla"
+        },
+        {
+          "title": "HSVA - color(hsv 43.082 81.145 100)",
+          "value": "hsva"
+        },
+        {
+          "title": "OKLCH - oklch(0.6987 0.1902 23.468)",
+          "value": "oklch"
+        },
+        {
+          "title": "LCH - lch(63.127 68.676 28.723)",
+          "value": "lch"
+        },
+        {
+          "title": "P3 - color(display-p3 0.9248 0.428 0.4078)",
+          "value": "p3"
+        }
+      ],
+      "default": "hex",
+      "description": "The color format to use when copying/pasting colors",
+      "name": "colorFormat",
+      "required": false,
+      "title": "Color Format",
+      "type": "dropdown"
+    }
+  ],
+  "commands": [
+    {
+      "name": "pick-color",
+      "title": "Pick Color",
+      "description": "Pick a color on your desktop",
+      "mode": "no-view",
+      "preferences": [
+        {
+          "name": "showColorName",
+          "title": "Show color name after picking",
+          "description": "Show the name of the picked color after picking",
+          "type": "checkbox",
+          "label": "Show",
+          "default": false,
+          "required": false
+        }
+      ],
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "extract-color",
+      "title": "Extract Color from Selected Image",
+      "description": "Extract colors from the selected File Explorer image",
+      "mode": "view",
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "menu-bar",
+      "title": "Menu Bar Color Picker",
+      "description": "Access your colors from the menu bar",
+      "mode": "menu-bar",
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "organize-colors",
+      "title": "Organize Colors",
+      "description": "Organize your colors",
+      "mode": "view",
+      "preferences": [
+        {
+          "data": [
+            {
+              "title": "Paste to Active App",
+              "value": "paste"
+            },
+            {
+              "title": "Copy to Clipboard",
+              "value": "copy"
+            }
+          ],
+          "default": "copy",
+          "description": "The primary action to perform on a selected color",
+          "name": "primaryAction",
+          "required": false,
+          "title": "Primary Action",
+          "type": "dropdown"
+        }
+      ],
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "favorite-colors",
+      "title": "Favorite Colors",
+      "description": "View and use your favorite colors",
+      "mode": "view",
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "generate-colors",
+      "title": "Generate Colors",
+      "description": "Generate colors using AI",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "prompt",
+          "placeholder": "Prompt",
+          "type": "text",
+          "required": true
+        }
+      ],
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "color-names",
+      "title": "Color Names",
+      "description": "Get the name of a color",
+      "mode": "view",
+      "preferences": [
+        {
+          "type": "dropdown",
+          "name": "colorNamesPerGroup",
+          "required": false,
+          "title": "Color Names Per Group",
+          "description": "The number of color names to display per group",
+          "data": [
+            {
+              "title": "5",
+              "value": "5"
+            },
+            {
+              "title": "10",
+              "value": "10"
+            },
+            {
+              "title": "25",
+              "value": "25"
+            },
+            {
+              "title": "All",
+              "value": "Infinity"
+            }
+          ]
+        }
+      ],
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "color-wheel",
+      "title": "Color Wheel",
+      "description": "Pick a color with color wheel",
+      "mode": "view",
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    },
+    {
+      "name": "convert-color",
+      "title": "Convert Color",
+      "description": "Convert any color to a different format",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "text",
+          "type": "text",
+          "required": false,
+          "placeholder": "#FF6363"
+        }
+      ],
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "runtime": "rust",
+      "concurrency": "serialize",
+      "timeoutMs": 120000,
+      "refreshMs": null
+    }
+  ],
+  "verification": [
+    {
+      "platform": "macOS",
+      "state": "headless-tested",
+      "target": "aarch64-apple-darwin",
+      "detail": "Native Rust tests and release build; fixture-host stdio/package validation. Live desktop UI not tested."
+    },
+    {
+      "platform": "Windows",
+      "state": "not-run",
+      "target": "x86_64-pc-windows-msvc"
+    }
+  ],
+  "execution": "process",
+  "protocolVersion": 1,
+  "repository": "https://github.com/almatkai/tezbar-color-picker-extension",
+  "artifacts": {},
+  "capabilities": [
+    "clipboard",
+    "selection",
+    "screen",
+    "ai",
+    "window",
+    "shell",
+    "settings",
+    "background",
+    "tray"
+  ],
+  "migrationPaths": {
+    "native-v2-store": "native-extensions-v2/color-picker/storage.json",
+    "legacy-0-0": "extensions/color-picker/.tezbar-support/cache/shared.json",
+    "legacy-0-1": "extensions/color-picker/.tezbar-local-storage.json",
+    "legacy-1-0": "extensions/packages/color-picker/.tezbar-support/cache/shared.json",
+    "legacy-1-1": "extensions/packages/color-picker/.tezbar-local-storage.json",
+    "legacy-2-0": "extensions/packages/raycast.color-picker/.tezbar-support/cache/shared.json",
+    "legacy-2-1": "extensions/packages/raycast.color-picker/.tezbar-local-storage.json",
+    "legacy-3-0": "extension-registry/packages/color-picker/.tezbar-support/cache/shared.json",
+    "legacy-3-1": "extension-registry/packages/color-picker/.tezbar-local-storage.json",
+    "legacy-4-0": "extension-registry/packages/raycast.color-picker/.tezbar-support/cache/shared.json",
+    "legacy-4-1": "extension-registry/packages/raycast.color-picker/.tezbar-local-storage.json"
+  },
+  "files": {}
+}
