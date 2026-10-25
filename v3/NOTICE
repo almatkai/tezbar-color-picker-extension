@@ -1,0 +1,21 @@
+Tezbar standalone color-picker Rust extension
+
+Extracted and adapted from Tezbar, baseline fe71ca87f21ac4ff31505010c228f8abda0f2a89.
+App-derived Rust and helper source is Apache-2.0: see LICENSE.
+Behavior and original artwork derive from the installed Raycast extension.
+Raycast extension source is MIT: see licenses/raycast-extensions-MIT.txt.
+Original author and source provenance: SOURCE.json and extension.json.
+Installed bundle revision is unknown; current upstream metadata in provenance
+must not be represented as the installed revision.
+
+Color naming tables: color-namer 1.4.0, Copyright (c) Zeke Sikelianos 2016,
+MIT (licenses/color-namer-MIT.md). NTC names: Chirag Mehta, CC BY 2.5,
+https://chir.ag/projects/name-that-color/ and
+https://creativecommons.org/licenses/by/2.5/ .
+Original NTC notice/source and legal code: licenses/ntc/.
+The tables were converted from JavaScript into JSON and hexadecimal colors
+normalized; the Rust port retains these converted tables. Attribution and the
+CC BY 2.5 license apply to the NTC data; this package is not MIT-only.
+The tray PNG reproduces the baseline adapter's locally drawn eyedropper mask.
+Original installed icon and color wheel PNG are retained without a new ownership
+or trademark claim.
