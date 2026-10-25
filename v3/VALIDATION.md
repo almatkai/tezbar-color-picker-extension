@@ -64,3 +64,31 @@ the sampler had minos 26.0, while the Rust executable has minos 11.0. build.sh n
 explicitly targets arm64-apple-macos11.0; package creation and extracted smoke parse
 LC_BUILD_VERSION and require macOS 11.0. The rebuilt helper is ARM64/ad-hoc signed.
 This establishes binary metadata compatibility, not execution on macOS 11 hardware.
+
+Windows CI follow-up, 2026-10-25 (base 8c21123e): job 121157016913 in run
+40189412683 passed sampler `-Check`, fmt, strict Clippy and all 15 domain tests,
+then failed the temporary sampler PID wait in the actual stdio test. Its generic
+`Condition deadline` did not establish whether PowerShell failed, the fixture
+exited, or the PID file was missing/encoded unexpectedly.
+
+A regression at the actual Python Host-to-Popen boundary reproduced loss of
+`SYSTEMROOT`: Windows Python iterates uppercase environment keys, while the
+fixture allowlist matched only `SystemRoot`. The allowlist now compares case
+insensitively, preserves only the same four OS variables, and derives its OS-only
+PATH from the preserved OS root. This is a confirmed fixture defect, **not yet a
+confirmed root cause of the native Windows failure**. Rust production code, SDK
+pin and the two Tokio workers are unchanged.
+
+The unchanged six-second PID deadline now distinguishes an early sampler response
+(including its error) from missing/unreadable/invalid PID data, showing at most 32
+fixture-file bytes as hex. The real stdio suite also exercises a temporary helper
+that intentionally exits with stderr before the existing PID cancellation and
+synthetic color-success checks. Six focused Python regressions run automatically
+inside the existing Rust stdio integration test; no inherited tests are removed.
+
+Local macOS follow-up: focused regressions, actual stdio integration, fmt, strict
+all-target Clippy and all 15 domain tests pass, serially with `-j1`. No PowerShell,
+Windows runtime or live desktop effects were available/exercised. Parent must run
+the updated native Windows job and extracted-package smoke before claiming a
+Windows fix. Detailed evidence and follow-up instructions:
+`/tmp/tezbar-external-rust/color-windows-fix.md`.

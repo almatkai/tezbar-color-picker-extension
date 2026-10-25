@@ -5,6 +5,20 @@ fn actual_stdio_lifecycle_regressions() {
     } else {
         "python3"
     };
+    let focused = std::process::Command::new(python)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .args([
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "scripts",
+            "-p",
+            "test_protocol_host.py",
+        ])
+        .status()
+        .expect("Python 3 fixture host regressions required");
+    assert!(focused.success(), "Focused fixture host regressions failed");
     let status = std::process::Command::new(python)
         .arg(concat!(
             env!("CARGO_MANIFEST_DIR"),

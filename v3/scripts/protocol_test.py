@@ -25,8 +25,10 @@ class Host:
         self.calls, self.events, self.responses = [], [], {}
         self.policy = lambda message: True
         self.messages = queue.Queue()
-        env = {k:v for k,v in os.environ.items() if k in ('SystemRoot','WINDIR','TEMP','TMP')}
-        env['PATH'] = os.path.join(env.get('SystemRoot','C:/Windows'),'System32') if os.name=='nt' else '/usr/bin:/bin'
+        # Python uppercases Windows environment keys, including SYSTEMROOT.
+        env = {k:v for k,v in os.environ.items() if k.upper() in ('SYSTEMROOT','WINDIR','TEMP','TMP')}
+        windows_root = next((v for k,v in env.items() if k.upper()=='SYSTEMROOT'),'C:/Windows')
+        env['PATH'] = os.path.join(windows_root,'System32') if os.name=='nt' else '/usr/bin:/bin'
         self.process = subprocess.Popen([str(pathlib.Path(binary).resolve())], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=package, env=env)
         def read():
             for line in self.process.stdout: self.messages.put(json.loads(line))
@@ -81,6 +83,21 @@ class Host:
         while not predicate():
             assert time.monotonic()<deadline,'Condition deadline'
             try:self.route(self.receive(.1))
+            except queue.Empty:pass
+    def sampler_pid(self,identity,pidfile,timeout=6):
+        deadline=time.monotonic()+timeout
+        while True:
+            assert identity not in self.responses, (
+                'Temporary sampler returned before publishing PID: '+repr(self.responses.get(identity))[:2048])
+            try:
+                raw=pidfile.read_bytes()
+                evidence='PID file bytes='+raw[:32].hex()+f' (length={len(raw)})'
+                if raw.strip().isdigit():return int(raw)
+            except FileNotFoundError:evidence='PID file missing'
+            except OSError as error:evidence=f'PID file unreadable: {type(error).__name__} errno={error.errno}'
+            assert time.monotonic()<deadline, (
+                f'Temporary sampler startup deadline ({timeout}s): {evidence}; extension exit={self.process.poll()}')
+            try:self.route(self.receive(min(.1,max(0,deadline-time.monotonic()))))
             except queue.Empty:pass
     def finish(self,eof=False):
         if self.process.poll() is None:
@@ -186,13 +203,22 @@ def color_suite(binary,package,work):
     sampler=work/'sampler-package'/'resources'/'sampler';sampler.mkdir(parents=True)
     helper=sampler/('windows.ps1' if os.name=='nt' else 'color-picker-helper')
     pidfile=work/'sampler.pid'
-    if os.name=='nt':helper.write_text("$PID | Set-Content -Path '"+str(pidfile).replace("'","''")+"'; Start-Sleep -Seconds 60")
-    else:helper.write_text('#!/bin/sh\necho $$ > "'+str(pidfile)+'"\nexec /bin/sleep 60\n');helper.chmod(0o755)
+    if os.name=='nt':helper.write_text("[Console]::Error.Write('sampler-fixture-intentional-failure'); exit 23")
+    else:helper.write_text("#!/bin/sh\nprintf '%s' 'sampler-fixture-intentional-failure' >&2\nexit 23\n");helper.chmod(0o755)
     h=Host(binary,sampler.parent.parent,work/'sampler-data','color-picker')
     try:
+        # An actual helper's early stderr/error response must explain startup
+        # failure immediately, rather than being hidden behind the PID deadline.
+        failed=h.request('session.open',{'sessionId':'failed-picker','commandName':'pick-color'})
+        try:h.sampler_pid(failed,pidfile)
+        except AssertionError as error:
+            assert 'sampler-fixture-intentional-failure' in str(error),error
+        else:raise AssertionError('Failing sampler unexpectedly published a PID')
+        assert 'error' in h.wait(failed,allow_error=True)
+        if os.name=='nt':helper.write_text("$PID | Set-Content -Path '"+str(pidfile).replace("'","''")+"'; Start-Sleep -Seconds 60")
+        else:helper.write_text('#!/bin/sh\necho $$ > "'+str(pidfile)+'"\nexec /bin/sleep 60\n');helper.chmod(0o755)
         identity=h.request('session.open',{'sessionId':'picker','commandName':'pick-color','preferences':{},'argumentValues':{}})
-        h.until(lambda:pidfile.exists() and pidfile.read_text().strip().isdigit())
-        pid=int(pidfile.read_text())
+        pid=h.sampler_pid(identity,pidfile)
         def gone():
             if os.name=='nt':
                 kernel=ctypes.WinDLL('kernel32',use_last_error=True)
