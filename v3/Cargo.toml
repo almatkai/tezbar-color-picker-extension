@@ -1,6 +1,6 @@
 [package]
 name = "tezbar-color-picker"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 license = "Apache-2.0 AND MIT AND CC-BY-2.5"
 description = "Standalone Rust color-picker extension for Tezbar"
