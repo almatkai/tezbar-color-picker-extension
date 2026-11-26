@@ -3,7 +3,7 @@
   "id": "com.tezbar.native.color-picker",
   "slug": "color-picker",
   "name": "Color Picker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pick and organize colors, everywhere on your Mac",
   "author": "thomas",
   "icon": "resources/icon.png",

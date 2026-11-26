@@ -1291,10 +1291,21 @@ fn form_view(state: &mut Value, kind: &str, color: Option<&str>, store: &Value) 
         // Renderer hook: send only HSV coordinates through changeActionId and
         // formValues. Rust returns conversion strings and executes copy/history.
         // The existing numeric Form remains usable before the wheel is wired.
-        root["props"] = json!({"nativeColorWheel":{"hue":h,"saturation":s*100.0,"value":v*100.0,"alpha":c.a*100.0,"preview":c.hex(),"formats":formats,"changeActionId":change,"saveActionId":submit},"backActionId":format!("{}:back",SLUG)});
+        root["props"] = json!({"nativeColorWheel":{"hue":h,"saturation":s*100.0,"value":v*100.0,"alpha":c.a*100.0,"preview":c.hex(),"formats":formats,"changeActionId":change,"saveActionId":submit}});
     }
-    ui.action("back", "Back", json!({"op":"back"}));
+    // The Color Wheel command's first screen has nothing to go back to: leave Back
+    // to the host, which closes the command. Every other form returns to its parent.
+    if !wheel_is_command_root(state, kind) {
+        let back = ui.action("back", "Back", json!({"op":"back"}));
+        if kind == "wheel" {
+            root["props"]["backActionId"] = json!(back);
+        }
+    }
     Ok(ui.finish(state, title, root))
+}
+
+fn wheel_is_command_root(state: &Value, kind: &str) -> bool {
+    kind == "wheel" && state["wheelRoot"] == json!(true)
 }
 
 fn wheel_color(state: &Value) -> Result<Color, String> {
@@ -1851,7 +1862,10 @@ pub async fn handle(
                 .await?;
                 return configure_tray(ctx, &store, preferred(payload)).await;
             }
-            "color-wheel" => return form_view(state, "wheel", None, &store),
+            "color-wheel" => {
+                state["wheelRoot"] = json!(true);
+                return form_view(state, "wheel", None, &store);
+            }
             "convert-color" => {
                 let text = if let Some(v) = arg(payload, "text").filter(|s| !s.trim().is_empty()) {
                     v.to_string()
@@ -2012,7 +2026,11 @@ pub async fn handle(
             "edit" => return form_view(state, "edit", action["color"].as_str(), &store),
             "add-form" => return form_view(state, "add", None, &store),
             "convert-form" => return form_view(state, "convert", None, &store),
-            "wheel-form" => return form_view(state, "wheel", None, &store),
+            "wheel-form" => {
+                // Opened from another screen, so Back returns there.
+                state["wheelRoot"] = json!(false);
+                return form_view(state, "wheel", None, &store);
+            }
             "convert-submit" => {
                 let c = Color::parse(form["color"].as_str().ok_or("Enter a color")?)?;
                 state["colorText"] = json!(c.format("rgb")?);
@@ -2165,12 +2183,8 @@ pub async fn handle(
                 state["selected"] = json!([]);
                 state["form"] = Value::Null;
             }
-            "back" => {
-                state["form"] = Value::Null;
-                if command == "color-wheel" {
-                    return form_view(state, "wheel", None, &store);
-                }
-            }
+            // Back returns to the command's own screen; it never redraws the form it left.
+            "back" => state["form"] = Value::Null,
             _ => return Err(format!("Unsupported color action: {op}")),
         }
         refresh_active_tray(ctx, &store, preferred(payload)).await?;
@@ -2895,6 +2909,73 @@ mod tests {
         )
         .await
         .is_err());
+    }
+
+    #[tokio::test]
+    async fn wheel_back_leaves_the_command_root_and_returns_from_a_nested_wheel() {
+        let temp = tempfile::tempdir().unwrap();
+        let (ctx, _) = context(temp.path(), Value::Null);
+        let mut state = json!({});
+        let view = handle(
+            &ctx,
+            "color-wheel",
+            "extension:run-command",
+            &json!({}),
+            &mut state,
+        )
+        .await
+        .unwrap();
+        // The command's first screen leaves Back to the host, which closes the command.
+        assert!(view["root"]["props"]["backActionId"].is_null(), "{view}");
+        assert!(!view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["title"] == "Back"));
+        let change = view["root"]["props"]["nativeColorWheel"]["changeActionId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let view = invoke(
+            &ctx,
+            "color-wheel",
+            &mut state,
+            &change,
+            json!({"hue":200.0,"saturation":50.0,"value":90.0,"alpha":100.0}),
+        )
+        .await
+        .unwrap();
+        assert!(
+            view["root"]["props"]["backActionId"].is_null(),
+            "dragging keeps the wheel as the command's first screen"
+        );
+        // Use Color, then reopen the wheel from the result: Back returns to the result.
+        let id = action(&view, "Use Color");
+        let result = invoke(
+            &ctx,
+            "color-wheel",
+            &mut state,
+            &id,
+            json!({"hue":"200","saturation":"50","value":"90","alpha":"100"}),
+        )
+        .await
+        .unwrap();
+        let id = action(&result, "Adjust Hue, Saturation and Brightness");
+        let nested = invoke(&ctx, "color-wheel", &mut state, &id, json!({}))
+            .await
+            .unwrap();
+        let back = nested["root"]["props"]["backActionId"]
+            .as_str()
+            .expect("a wheel opened from another screen owns Back")
+            .to_string();
+        assert_eq!(back, action(&nested, "Back"));
+        let returned = invoke(&ctx, "color-wheel", &mut state, &back, json!({}))
+            .await
+            .unwrap();
+        assert!(
+            returned["root"]["props"]["nativeColorWheel"].is_null(),
+            "Back must leave the wheel, not redraw it: {returned}"
+        );
     }
 
     #[tokio::test]
